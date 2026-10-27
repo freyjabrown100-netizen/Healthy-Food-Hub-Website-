@@ -1,0 +1,1225 @@
+External recipe API (Spoonacular etc.)• Email marketing automation (Mailchimp etc.) — emails collected only• Premium subscription billing system• Multi-admin roles (Editor, Moderator) — single admin for v1
+Healthy Food Hub — TRD (Technical Requirements Document)
+Technology Stack
+Technology Stack
+Layer
+Technology
+Notes
+Frontend Framework
+React 18 + TypeScript
+Vite build tool
+Styling
+Tailwind CSS v3
+Utility-first, dark mode via class
+Routing
+React Router v6
+SPA, client-side routing
+State Management
+Zustand
+Lightweight global state
+Forms
+React Hook Form + Zod
+Validation schema
+Icons
+Lucide React
+Consistent icon set
+Backend / DB
+Supabase
+PostgreSQL + Auth + Storage
+AI Services
+Cloudflare AI Gateway
+Llama 3.1 8B + LLaVA
+Hosting
+Cloudflare Pages
+GitHub import deployment
+Source Control
+GitHub
+Public repo
+Analytics
+Cloudflare Web Analytics
+Privacy-friendly, free
+Package Manager
+npm
+package-lock.json only (no bun.lock)
+Frontend Architecture
+Frontend Architecture
+Build Tool: Vite (fast HMR, optimized production build, dist/ output)
+Folder Structure:
+src/
+components/ # Reusable UI components
+common/ # Button, Card, Modal, Input etc.
+layout/ # Header, Footer, Sidebar, Nav
+recipes/ # RecipeCard, RecipeGrid, NutritionBadge
+ai/ # AIChat, RecipeGenerator, MealPlanner, ImageAnalyzer
+pages/ # One file per route
+hooks/ # Custom React hooks
+store/ # Zustand global state slices
+lib/ # supabase.ts, cloudflareAI.ts, utils
+types/ # TypeScript interfaces
+assets/ # Static assets
+Routing Structure:
+• / — Home
+• /recipes — Recipe Library
+• /recipes/:slug — Single Recipe
+• /categories/:category — Category Page
+• /ai/recipe-generator — AI Recipe Generator
+• /ai/meal-planner — AI Meal Planner
+• /ai/food-assistant — AI Chatbot
+• /ai/image-analyzer — AI Image Analyzer
+• /nutrition — Nutrition Center
+• /blog — Blog Index
+• /blog/:slug — Blog Post
+• /dashboard — User Dashboard (protected)
+• /admin/* — Admin Panel (admin role only)
+• /about, /contact, /privacy, /terms — Static pages
+State Management (Zustand):
+• authStore — user session, role
+• recipeStore — favorites, recently viewed
+• mealPlanStore — active meal plans
+• groceryStore — grocery lists
+• themeStore — dark/light mode
+• aiStore — AI conversation history, generated results
+Supabase Integration Strategy
+Supabase Integration Strategy
+Important: Supabase project final implementation stage par create hoga — development ke dauran nahi.
+Auth:
+• Supabase Auth — Email + Password (v1)
+• supabase.auth.signUp(), signInWithPassword(), signOut()
+• JWT session stored in localStorage via Supabase client
+• Route guards: protected pages check authStore.user
+Database: PostgreSQL via Supabase
+• Supabase JS client (@supabase/supabase-js) for all queries
+• Row Level Security (RLS) on all tables
+• Users can only read/write their own data
+• Admins bypass RLS via service role (server-side only)
+Storage:
+• Supabase Storage for recipe images and user-uploaded food images (AI analyzer)
+• Bucket: recipe-images (public read)
+• Bucket: ai-uploads (private, user-scoped)
+• Max upload size: 5MB per image
+Client Setup (src/lib/supabase.ts):
+import { createClient } from '@supabase/supabase-js'
+export const supabase = createClient(
+import.meta.env.VITE_SUPABASE_URL,
+import.meta.env.VITE_SUPABASE_ANON_KEY
+)
+Cloudflare AI Gateway Architecture
+Cloudflare AI Gateway Architecture
+Architecture: Frontend → Cloudflare Pages Function (proxy) → Cloudflare AI Gateway → AI Model
+API keys kabhi bhi frontend React code mein nahi aayenge. Sab AI calls ek Cloudflare Pages Function (server-side) ke through jaayengi.
+File Structure for AI Proxy:
+functions/
+api/
+ai/
+chat.ts # Food Assistant chatbot
+recipe.ts # Recipe Generator
+meal-plan.ts # Meal Planner
+image-analyze.ts # Image Analyzer
+How It Works:
+React frontend calls /api/ai/recipe (POST)
+Cloudflare Pages Function receives request
+Function calls Cloudflare AI Gateway URL with CF_AI_GATEWAY_TOKEN (secret)
+AI Gateway routes to @cf/meta/llama-3.1-8b-instruct or LLaVA
+Response returns to frontend
+AI Gateway Setup (Cloudflare Dashboard):
+• Create AI Gateway in Cloudflare dashboard
+• Gateway URL: https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_name}/
+• Rate limiting aur caching AI Gateway level par configure
+Models Used:
+• Text AI (Recipe Gen, Meal Planner, Chatbot): @cf/meta/llama-3.1-8b-instruct
+• Image AI (Image Analyzer): @cf/llava-hf/llava-1.5-7b-hf
+Rate Limiting Strategy:
+• Guest: 3 AI requests per IP per hour
+• Registered User: 20 AI requests per hour
+• Enforced at Cloudflare Pages Function level
+Security Requirements
+Security Requirements
+• API Keys: VITE_ prefix wale variables sirf public Supabase anon key ke liye. AI gateway token aur service role keys sirf Cloudflare environment variables mein (never in code)
+• Supabase RLS: Har table par Row Level Security enabled. Users apna hi data read/write kar sakte hain
+• Admin Authorization: Admin routes /admin/* par double-check: authStore.role === 'admin' + Supabase RLS policy
+• Input Validation: Zod schemas from aur backend dono par. AI prompt injection se bachne ke liye user input sanitize ho
+• CORS: Cloudflare Pages Functions mein strict origin check
+• Image Upload: File type validation (JPEG, PNG, WebP only), max 5MB, Supabase storage policies
+• XSS: React ka default HTML escaping + dangerouslySetInnerHTML use nahi karein
+• Auth Tokens: Supabase JWT auto-refresh; expired sessions clean logout
+Cloudflare Deployment Configuration
+Cloudflare Deployment Configuration
+Deployment Flow: Google AI Studio (code) → GitHub (public repo) → Cloudflare Pages (Import from GitHub)
+Cloudflare Pages Build Settings:
+• Framework preset: Vite
+• Build command: npm run build
+• Output directory: dist
+• Root directory: / (repo root)
+• Node.js version: 18.x
+SPA Routing Fix (public/_redirects):
+/* /index.html 200
+Ye file ensure karta hai ke page refresh par 404 na aaye.
+.npmrc file (repo root — build fail prevention):
+legacy-peer-deps=true
+Lock File Rule: Sirf package-lock.json rakhen. bun.lock / bun.lockb delete karein before deployment.
+Cloudflare Environment Variables (Dashboard mein set karein):
+• SUPABASE_URL — Supabase project URL
+• SUPABASE_ANON_KEY — Supabase publishable key
+• CF_AI_GATEWAY_TOKEN — Cloudflare AI Gateway token (secret)
+• CF_ACCOUNT_ID — Cloudflare account ID
+• CF_GATEWAY_NAME — AI Gateway name
+Frontend Environment Variables (.env):
+• VITE_SUPABASE_URL
+• VITE_SUPABASE_ANON_KEY
+• (No AI keys in frontend .env)
+Environment Variables
+Environment Variables
+Variable
+Location
+Purpose
+VITE_SUPABASE_URL
+.env + Cloudflare
+Supabase project URL
+VITE_SUPABASE_ANON_KEY
+.env + Cloudflare
+Supabase public anon key
+CF_AI_GATEWAY_TOKEN
+Cloudflare Secrets only
+AI Gateway auth token
+CF_ACCOUNT_ID
+Cloudflare Secrets only
+Cloudflare account ID
+CF_GATEWAY_NAME
+Cloudflare env only
+AI Gateway name
+SUPABASE_SERVICE_ROLE_KEY
+Cloudflare Secrets only
+Admin DB operations (server-side only)
+Performance & SEO Requirements
+Performance & SEO Requirements
+Performance:
+• Vite code splitting — route-based lazy loading (React.lazy + Suspense)
+• Images: lazy loading (loading="lazy") + WebP format preferred
+• Recipe images served from Supabase Storage CDN
+• Tailwind CSS purge in production (zero unused styles)
+• Target: Lighthouse Performance score > 85
+SEO:
+• Semantic HTML5 elements (<article>, <main>, <nav>, <aside>)
+• Dynamic <title> aur <meta description> per page (React Helmet Async)
+• Open Graph tags for social sharing
+• Recipe JSON-LD structured data on all recipe pages (Google rich results)
+• XML sitemap generated at build time
+• Canonical URLs
+• robots.txt
+Accessibility:
+• WCAG 2.1 AA compliance target
+• All interactive elements keyboard navigable
+• ARIA labels on icons, buttons, form inputs
+• Minimum 4.5:1 color contrast ratio
+• Skip-to-content link
+Healthy Food Hub — App Flow (User & Admin Experience)
+Guest User Flow
+Guest User Flow
+Guest user bina login ke ye sab kar sakta hai:
+Home Page land kare → hero, trending recipes, categories dekhe
+Recipe Library browse kare → search, filter, recipe cards dekhe
+Single Recipe Page khole → full recipe, ingredients, instructions, nutrition info dekhe
+Category pages browse kare (Breakfast, Vegan, High-Protein etc.)
+Nutrition Center use kare (calculators — sab tools guest ke liye open)
+Blog articles padhe
+AI Features — 3 requests per session (rate-limited by IP)
+◦ AI Recipe Generator: ingredients input kare, recipe dekhe (save nahi ho sakti)
+◦ AI Meal Planner: plan dekhe (save nahi)
+◦ AI Food Assistant: 3 messages then registration prompt
+◦ AI Image Analyzer: 1 image upload then registration prompt
+Newsletter signup kare (email collect)
+About, Contact, Privacy, Terms pages
+Register/Login CTA — AI use karne ke baad ya save try karne par
+Guest Limitations:
+• Recipes save/favorite nahi kar sakta
+• Meal plans save nahi kar sakta
+• Grocery list generate nahi kar sakta
+• AI features strictly limited (3 requests then paywall/register prompt)
+Authentication Flow
+Authentication Flow
+Registration:
+User /register page par jaye
+Name, Email, Password (min 8 chars) fill kare
+Dietary preference select kare (optional — Vegetarian, Vegan, High-Protein etc.)
+Submit → Supabase signUp() call → verification email send ho
+Email verify kare → auto login → Dashboard /dashboard par redirect
+Login:
+/login page → Email + Password
+Supabase signInWithPassword() → JWT session
+Redirect: originally visited protected page, ya /dashboard
+"Forgot Password" → Supabase resetPasswordForEmail() → email link
+Auth State:
+• supabase.auth.onAuthStateChange() listener app-wide
+• Zustand authStore update on session change
+• Protected routes: <PrivateRoute> component — redirect to /login if unauthenticated
+• Admin routes: <AdminRoute> — redirect if role !== 'admin'
+Logout:
+• Header dropdown → Logout → supabase.auth.signOut() → Home page redirect
+• Session clear, store reset
+Registered User Flow
+Registered User Flow
+Dashboard /dashboard:
+• Saved recipes grid (with remove button)
+• AI-generated recipes list
+• Active meal plans
+• Grocery lists
+• Recently viewed recipes (auto-tracked)
+• Account settings link
+Recipe Interaction:
+Recipe page → Heart icon click → Recipe saved to favorites (Supabase insert)
+Star rating → Submit review (text + rating 1-5)
+Serving adjuster → Ingredient quantities update (client-side calculation)
+Print button → Print-optimized view
+Meal Plan Flow:
+/ai/meal-planner → Select duration (1/7/30 day), dietary pref, budget
+AI generates plan → Review breakfast/lunch/dinner/snacks
+"Save Plan" → Supabase save → appears in Dashboard
+"Generate Grocery List" → Auto-create from meal plan → Smart Grocery List
+Export as PDF / Print
+Grocery List Flow:
+Created from recipe or meal plan
+/dashboard → Grocery Lists tab
+Items categorized (Produce, Dairy, Grains, Protein etc.)
+Check off items (local state — no DB save for checkmarks)
+Adjust quantities → Print / Export
+Account Settings:
+• Update name, email, password
+• Dietary preferences update
+• Delete account option
+AI Features Flow
+AI Features Flow
+AI Recipe Generator:
+User ingredients type kare (comma-separated ya tag input)
+Optional: dietary pref, cook time (under 30 min / under 1 hr / any), difficulty (easy/medium)
+"Generate Recipe" click → loading spinner → Cloudflare Function call → AI response
+Recipe card display (title, ingredients, steps, estimated nutrition)
+Registered user: "Save Recipe" button → Supabase save
+"Regenerate" → new variation; "Substitute Ingredient" → AI suggests alt
+Print option
+AI Meal Planner:
+Select plan type (1-day / 7-day / 30-day)
+Dietary preferences, budget range (Low / Medium / High)
+"Generate Plan" → loading → AI response
+Day-by-day grid: Breakfast, Lunch, Dinner, Snacks
+Each meal shows estimated calories
+Registered user: Save, Generate Grocery List, Export PDF
+AI Food Assistant (Chatbot):
+Chat interface (message input + send button)
+User types question → POST to /api/ai/chat
+AI response streams/displays in chat bubble
+Conversation history maintained in session (aiStore)
+Suggested starter questions shown initially
+Guest: 3 messages then register CTA overlay
+AI Food Image Analyzer:
+Upload zone (drag-and-drop or click) — JPG/PNG/WebP, max 5MB
+Image preview shown
+"Analyze" click → image sent to /api/ai/image-analyze (base64)
+Results: identified food items, portion estimate, calorie/macro estimate
+Healthier alternatives section
+Bold disclaimer: estimates are approximate, not medical advice
+Guest: 1 analysis then register CTA
+Admin Panel Flow
+Admin Panel Flow
+Admin /admin route — sirf admin role wale users access kar sakte hain.
+Admin Login: Same login page, role check ke baad /admin/dashboard redirect.
+Admin Dashboard: Quick stats — total recipes, total users, page views (Cloudflare Analytics), recent activity.
+Recipe Management /admin/recipes:
+Recipes list (table) — title, category, status, date
+"Add Recipe" → form (title, description, image upload, ingredients, steps, nutrition, dietary labels, category)
+Edit → pre-filled form → save
+Delete → confirmation modal → delete
+Publish / Draft toggle
+Blog Management /admin/blog:
+Articles list → Add / Edit / Delete
+Rich text editor (or Markdown) for article body
+Categories, tags, featured image
+Publish / Draft status
+User Management /admin/users:
+Users table (email, name, join date, role, status)
+Ban / Unban user
+View user's saved recipes (read-only)
+AI Settings /admin/ai-settings:
+Guest AI request limit per hour (editable)
+Registered user AI request limit per hour
+Enable / Disable specific AI features
+Ad Management /admin/ads:
+Adsterra zone codes enter karein
+Enable / Disable ad placements per zone
+Newsletter /admin/newsletter:
+Subscriber list view
+Export CSV
+Site Settings /admin/settings:
+• Contact email, social media links, site description
+Error, Loading & Empty States
+Error, Loading & Empty States
+Scenario
+UI Behavior
+AI request loading
+Spinner + "Generating your recipe..." message
+AI error (timeout/failure)
+Toast notification: "AI unavailable, please try again" — no broken UI
+AI rate limit hit (guest)
+Modal: "Sign up for more AI requests" with Register button
+Recipe not found
+404 page with "Browse Recipes" CTA
+Empty search results
+"No recipes found" illustration + suggestion to try different filters
+Empty dashboard (new user)
+Friendly onboarding message + "Browse Recipes" and "Try AI Generator" CTAs
+Supabase error (network)
+Toast: "Something went wrong. Please try again."
+Image upload error (wrong type/size)
+Inline error: "Please upload a JPG or PNG under 5MB"
+Form validation error
+Inline red error messages below each field
+Page loading
+Skeleton loader cards (not blank white screens)
+Admin: delete confirmation
+Modal: "Are you sure? This cannot be undone." + Confirm / Cancel
+General Rules:
+• Har async operation mein loading state hogi (button disabled + spinner)
+• Errors kabhi bhi console-only nahi honge — user ko readable message dikhega
+• Partial failures gracefully handle honge (ek component fail ho to baaki page kaam kare)
+Healthy Food Hub — UI/UX Design Brief
+Design Philosophy
+Design Philosophy
+Style: Modern Clean Health — fresh, light, trustworthy. Green aur white dominant palette. Professional lekin approachable. Jaise ek premium health magazine ka digital version.
+Core Principles:
+• Food First: Recipes aur food imagery hero hain — large, appetizing photos dominant
+• Clarity: Information hierarchy clear ho — user ko scan karna aasaan lage
+• Delight: Subtle animations aur micro-interactions jo experience ko lively banayein
+• Consistency: Same component shapes, spacing, colors across all pages
+• Accessible: High contrast, large tap targets, readable font sizes
+• AI-Forward: AI features visually distinct — purple accent color se highlight
+Inspiration References:
+• Minimalist: Clean white space, card-based layout
+• Healthy vibe: Fresh greens, warm whites, natural photography
+• Professional: Not childish — similar to Healthline, EatingWell, or Minimalist Baker
+DO NOT:
+• Overly busy layouts
+• Neon colors ya aggressive gradients
+• Cheap stock photo feel
+• Heavy drop shadows (use subtle ones only)
+Color Palette
+Color Palette
+Role
+Name
+Light Mode
+Dark Mode
+Usage
+Primary
+Leaf Green
+#22c55e
+#16a34a
+Buttons, links, active states, icons
+Primary Dark
+Forest Green
+#15803d
+#14532d
+Hover states, headings accent
+Secondary
+Mint
+#bbf7d0
+#166534
+Badges, tags, highlights
+AI Accent
+Violet
+#7c3aed
+#a78bfa
+AI feature buttons, AI sections
+Background
+White / Slate
+#ffffff
+#0f172a
+Page background
+Surface
+Light Gray
+#f8fafc
+#1e293b
+Cards, panels, sidebars
+Border
+Subtle Gray
+#e2e8f0
+#334155
+Card borders, dividers
+Text Primary
+Near Black
+#0f172a
+#f1f5f9
+Headings, body text
+Text Secondary
+Muted Gray
+#64748b
+#94a3b8
+Metadata, timestamps, captions
+Error
+Red
+#ef4444
+#fca5a5
+Form errors, destructive actions
+Warning
+Amber
+#f59e0b
+#fcd34d
+Warnings, tips
+Success
+Green (light)
+#10b981
+#6ee7b7
+Success toasts, checkmarks
+Tailwind Config Notes:
+• Primary green = Tailwind's green-500 / green-600
+• AI accent = Tailwind's violet-700 / violet-400
+• All dark mode variants via dark: prefix classes
+Typography
+Typography
+Font Families (Google Fonts):
+• Headings: Plus Jakarta Sans — modern, geometric, friendly
+• Body: Inter — highly readable, clean, web-optimized
+• Code/Nutrition Numbers: JetBrains Mono — monospace for data clarity
+Type Scale (Tailwind):
+Element
+Size
+Weight
+Class
+H1 (Hero)
+48px / 3rem
+800
+text-5xl font-extrabold
+H2 (Section)
+36px / 2.25rem
+700
+text-4xl font-bold
+H3 (Card title)
+24px / 1.5rem
+600
+text-2xl font-semibold
+H4 (Sub-section)
+20px / 1.25rem
+600
+text-xl font-semibold
+Body Large
+18px / 1.125rem
+400
+text-lg
+Body
+16px / 1rem
+400
+text-base
+Small / Meta
+14px / 0.875rem
+400
+text-sm
+Caption
+12px / 0.75rem
+400
+text-xs
+Rules:
+• Line height: leading-relaxed (1.625) for body, leading-tight for headings
+• Max line length: ~70 characters (controlled via max-w-prose)
+• Mobile: H1 scales down to text-3xl on small screens
+Layout & Spacing
+Layout & Spacing
+Max Widths:
+• Content: max-w-7xl (1280px) centered with mx-auto px-4
+• Article/blog body: max-w-3xl (768px)
+• Forms: max-w-lg (512px)
+Grid System:
+• Recipes grid: grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4
+• Categories: grid-cols-2 sm:grid-cols-3 lg:grid-cols-4
+• Dashboard: grid-cols-1 lg:grid-cols-3 (sidebar + main)
+Breakpoints (Tailwind defaults):
+Name
+Min Width
+Target
+sm
+640px
+Large mobile
+md
+768px
+Tablet
+lg
+1024px
+Small desktop
+xl
+1280px
+Standard desktop
+2xl
+1536px
+Large desktop
+Spacing Scale:
+• Section vertical padding: py-16 (desktop) / py-10 (mobile)
+• Card internal padding: p-6
+• Gap between cards: gap-6
+• Form field gap: space-y-4
+• Button padding: px-6 py-3
+Border Radius:
+• Cards: rounded-2xl
+• Buttons: rounded-xl
+• Inputs: rounded-lg
+• Badges: rounded-full
+• Images in cards: rounded-t-2xl (top only)
+Component Design
+Component Design
+Recipe Card:
+• Aspect ratio image top (16:9)
+• White card body, rounded-2xl, shadow-sm hover:shadow-md transition
+• Category badge top-left on image (green pill)
+• Title (H3), prep time + calories row, dietary badges row
+• Heart icon (top-right corner of image) — favorite toggle
+• Rating stars small below title
+Buttons:
+• Primary: bg-green-500 hover:bg-green-600 text-white rounded-xl px-6 py-3 font-semibold
+• Secondary: border-2 border-green-500 text-green-600 hover:bg-green-50 rounded-xl
+• AI button: bg-violet-600 hover:bg-violet-700 text-white with sparkle icon
+• Destructive: bg-red-500 hover:bg-red-600 text-white
+• Ghost: text-gray-600 hover:bg-gray-100
+• All buttons: transition-all duration-200 + disabled:opacity-50 disabled:cursor-not-allowed
+Badges / Labels:
+• Dietary: rounded-full text-xs px-3 py-1 — color coded:
+◦ Vegetarian: green | Vegan: emerald | GF: yellow | DF: blue | High-Protein: orange
+Form Inputs:
+• border border-gray-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-transparent
+• Error state: border-red-400 focus:ring-red-400
+• Label: small, semibold, above input
+Navigation:
+• Sticky header: white/dark-bg, logo left, nav links center, auth buttons right
+• Mobile: hamburger menu → slide-in drawer from right
+• Active nav link: green underline or green text
+Modals:
+• Centered, max-w-lg, backdrop blur, rounded-2xl p-8
+• Close button top-right (X icon)
+• Confirm/Cancel button pair at bottom
+Nutrition Info Display:
+• 4-column mini grid: Calories | Protein | Carbs | Fat
+• Each: number in font-bold text-lg + label in text-xs text-gray-500
+• Light green background strip
+AI Chat Interface:
+• User bubble: right-aligned, green background
+• AI bubble: left-aligned, gray/slate background, bot avatar icon
+• Message input: sticky bottom, full width
+Dark Mode & Light Mode
+Dark Mode & Light Mode
+Implementation: Tailwind darkMode: 'class' — dark class toggled on <html> element. User preference stored in localStorage via themeStore.
+Default: System preference (prefers-color-scheme) checked on first visit.
+Toggle: Sun/Moon icon in navbar header — visible on all pages.
+Key Dark Mode Changes:
+• Background: #0f172a (slate-900)
+• Cards: #1e293b (slate-800)
+• Text: #f1f5f9 (slate-100)
+• Borders: #334155 (slate-700)
+• Input fields: dark background with lighter border
+• Recipe images remain same (photos don't invert)
+• Green primary color slightly adjusted for dark contrast
+• AI sections: dark violet tint background
+Rule: Har component mein explicit dark: variants likhe jayenge. Kabhi filter: invert() use nahi karein.
+Animations & Transitions
+Animations & Transitions
+Guiding Rule: Subtle aur purposeful — never distracting. No heavy animations on page load.
+Element
+Animation
+Recipe card hover
+hover:shadow-md hover:-translate-y-1 transition-all duration-200
+Button hover
+transition-colors duration-200
+Heart favorite toggle
+Quick scale pulse scale-125 on click
+Page transitions
+Fade-in on route change (React Router + CSS)
+Skeleton loaders
+Shimmer pulse animation while loading
+Toast notifications
+Slide in from top-right, auto-dismiss after 3s
+Modal open/close
+opacity + scale transition (Headless UI)
+Mobile nav drawer
+Slide from right translateX
+AI generating state
+Typing dots animation (3-dot bounce)
+Dark mode toggle
+duration-300 transition on background + text
+Performance: will-change: transform only on frequently animated elements. prefers-reduced-motion media query respect karein — animations disable ho jayein.
+Images & Icons
+Images & Icons
+Recipe Images:
+• Aspect ratio: 16:9 (card thumbnails), 4:3 (hero on recipe page)
+• Format: JPG (photos), WebP preferred
+• Lazy loading: loading="lazy" on all card images
+• Alt text: meaningful (recipe name + key ingredients)
+• Source: Supabase Storage CDN (admin-uploaded)
+• Frontend phase: Unsplash placeholder URLs (static)
+Hero / Banner Images:
+• Full-width, high-quality food photography
+• Overlay gradient for text readability: linear-gradient(to right, rgba(0,0,0,0.5), transparent)
+Icons:
+• Library: Lucide React (consistent, clean, MIT license)
+• Key icons: UtensilsCrossed (recipes), Brain (AI), Leaf (vegetarian), Salad (vegan), Flame (calories), Clock (time), Heart (favorite), Star (rating), ShoppingCart (grocery), Sun/Moon (theme), Sparkles (AI features)
+• Size: 20px (nav), 24px (cards), 32px (feature sections)
+• Color: inherits text color or explicit Tailwind class
+Logo:
+• Text-based for v1 — "Healthy Food Hub" in Plus Jakarta Sans Bold
+• Green leaf icon beside text (🌿 emoji or SVG leaf)
+• PNG export at 400x100px for high-DPI
+AI Section Images:
+• Purple/violet tinted illustrations (AI-generated)
+• Sparkle/brain iconography to differentiate AI features visually
+Healthy Food Hub — Backend Schema
+Note: This is a planning document. Actual Supabase database will be created in the final implementation stage via Supabase connector.
+Database Tables
+Database Tables
+profiles (extends Supabase auth.users)
+Column
+Type
+Constraints
+Notes
+id
+uuid
+PK, FK → auth.users
+Same as auth user id
+full_name
+text
+email
+text
+unique, not null
+role
+text
+default 'user'
+'user' or 'admin'
+dietary_preferences
+text[]
+default '{}'
+e.g. ['vegetarian','gluten-free']
+created_at
+timestamptz
+default now()
+updated_at
+timestamptz
+recipes
+Column
+Type
+Constraints
+Notes
+id
+uuid
+PK, default gen_random_uuid()
+title
+text
+not null
+slug
+text
+unique, not null
+URL-friendly
+description
+text
+image_url
+text
+Supabase Storage URL
+prep_time_minutes
+int
+cook_time_minutes
+int
+servings
+int
+difficulty
+text
+'easy', 'medium', 'hard'
+category_id
+uuid
+FK → categories
+ingredients
+jsonb
+not null
+[{name, amount, unit}]
+instructions
+jsonb
+not null
+[{step, description}]
+calories
+int
+protein_g
+numeric
+carbs_g
+numeric
+fat_g
+numeric
+fiber_g
+numeric
+dietary_labels
+text[]
+default '{}'
+e.g. ['vegan','gluten-free']
+is_published
+bool
+default false
+author_id
+uuid
+FK → profiles
+Admin who created
+created_at
+timestamptz
+default now()
+updated_at
+timestamptz
+categories
+Column
+Type
+Constraints
+id
+uuid
+PK
+name
+text
+not null, unique
+slug
+text
+not null, unique
+description
+text
+icon
+text
+Lucide icon name
+order
+int
+display order
+reviews
+Column
+Type
+Constraints
+id
+uuid
+PK
+recipe_id
+uuid
+FK → recipes
+user_id
+uuid
+FK → profiles
+rating
+int
+1–5
+comment
+text
+created_at
+timestamptz
+default now()
+user_favorites
+Column
+Type
+Constraints
+id
+uuid
+PK
+user_id
+uuid
+FK → profiles
+recipe_id
+uuid
+FK → recipes
+created_at
+timestamptz
+default now()
+ai_recipes (AI-generated recipes saved by users)
+Column
+Type
+Constraints
+id
+uuid
+PK
+user_id
+uuid
+FK → profiles
+title
+text
+content
+jsonb
+Full AI recipe
+prompt
+text
+Original user prompt
+created_at
+timestamptz
+default now()
+meal_plans
+Column
+Type
+Constraints
+id
+uuid
+PK
+user_id
+uuid
+FK → profiles
+title
+text
+duration_days
+int
+1, 7, or 30
+plan_data
+jsonb
+Full plan structure
+dietary_preferences
+text[]
+budget_level
+text
+'low', 'medium', 'high'
+created_at
+timestamptz
+default now()
+grocery_lists
+Column
+Type
+Constraints
+id
+uuid
+PK
+user_id
+uuid
+FK → profiles
+name
+text
+items
+jsonb
+[{name, qty, unit, category, checked}]
+meal_plan_id
+uuid
+FK → meal_plans, nullable
+created_at
+timestamptz
+default now()
+blog_posts
+Column
+Type
+Constraints
+id
+uuid
+PK
+title
+text
+not null
+slug
+text
+unique, not null
+content
+text
+Markdown/HTML
+excerpt
+text
+image_url
+text
+category
+text
+author_id
+uuid
+FK → profiles
+is_published
+bool
+default false
+published_at
+timestamptz
+created_at
+timestamptz
+default now()
+newsletter_subscribers
+Column
+Type
+Constraints
+id
+uuid
+PK
+email
+text
+unique, not null
+subscribed_at
+timestamptz
+default now()
+is_active
+bool
+default true
+site_settings
+Column
+Type
+Notes
+key
+text
+PK
+value
+jsonb
+Flexible config values
+updated_at
+timestamptz
+Table Relationships
+Table Relationships
+auth.users (Supabase built-in)
+└── profiles (1:1)
+├── recipes (1:many, as author)
+├── reviews (1:many)
+├── user_favorites (1:many)
+├── ai_recipes (1:many)
+├── meal_plans (1:many)
+│ └── grocery_lists (1:1, optional)
+└── grocery_lists (1:many)
+recipes
+├── categories (many:1)
+└── reviews (1:many)
+blog_posts
+└── profiles (many:1, as author)
+Key Relationships:
+• profiles.id = auth.users.id (same UUID, auto-created via trigger)
+• user_favorites is a junction table between profiles and recipes
+• grocery_lists.meal_plan_id is nullable — list can be standalone or from meal plan
+3. Row Level Security (RLS) Policies
+3. Row Level Security (RLS) Policies
+Sab tables par RLS enabled. Default: deny all.
+Table
+Policy
+Rule
+profiles
+SELECT
+User apna khud ka profile read kar sakta hai
+profiles
+UPDATE
+User apna khud ka profile update kar sakta hai
+recipes
+SELECT
+Published recipes: everyone. Unpublished: author or admin only
+recipes
+INSERT
+Admin only
+recipes
+UPDATE
+Admin only
+recipes
+DELETE
+Admin only
+categories
+SELECT
+Everyone (public)
+categories
+INSERT/UPDATE/DELETE
+Admin only
+reviews
+SELECT
+Everyone (public)
+reviews
+INSERT
+Authenticated users only
+reviews
+UPDATE/DELETE
+Own review ya admin
+user_favorites
+ALL
+Own rows only (user_id = auth.uid())
+ai_recipes
+ALL
+Own rows only
+meal_plans
+ALL
+Own rows only
+grocery_lists
+ALL
+Own rows only
+blog_posts
+SELECT
+Published: everyone. Unpublished: admin only
+blog_posts
+INSERT/UPDATE/DELETE
+Admin only
+newsletter_subscribers
+INSERT
+Everyone (signup)
+newsletter_subscribers
+SELECT/DELETE
+Admin only
+site_settings
+SELECT
+Admin only
+site_settings
+UPDATE
+Admin only
+Admin Check: EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+4. Indexes
+4. Indexes
+Performance ke liye critical queries par indexes:
+Table
+Column(s)
+Index Type
+Reason
+recipes
+slug
+UNIQUE
+URL lookups
+recipes
+category_id
+BTREE
+Category filter
+recipes
+is_published
+BTREE
+Published filter (most queries)
+recipes
+dietary_labels
+GIN
+Array search (@> operator)
+recipes
+created_at
+BTREE DESC
+Latest recipes sort
+recipes
+title
+GIN (tsvector)
+Full-text search
+blog_posts
+slug
+UNIQUE
+URL lookups
+blog_posts
+is_published
+BTREE
+Published filter
+reviews
+recipe_id
+BTREE
+Recipe reviews fetch
+user_favorites
+(user_id, recipe_id)
+UNIQUE
+Prevent duplicate favorites
+user_favorites
+user_id
+BTREE
+User's favorites list
+ai_recipes
+user_id
+BTREE
+User's saved AI recipes
+meal_plans
+user_id
+BTREE
+User's meal plans
+grocery_lists
+user_id
+BTREE
+User's grocery lists
+newsletter_subscribers
+email
+UNIQUE
+Prevent duplicate signups
+profiles
+email
+UNIQUE
+Login lookup
+profiles
+role
+BTREE
+Admin role check
+Full-Text Search on Recipes:
+CREATE INDEX recipes_search_idx
+ON recipes
+USING gin(to_tsvector('english', title || ' ' || COALESCE(description, '')));
+5. Storage Buckets & Policies
+5. Storage Buckets & Policies
+Bucket: recipe-images
+• Access: Public read (CDN-served)
+• Allowed types: image/jpeg, image/png, image/webp
+• Max size: 5MB per file
+• Path structure: recipe-images/{recipe_id}/{filename}
+Policies:
+Operation
+Who
+Rule
+SELECT (read)
+Everyone
+Public — no auth required
+INSERT
+Admin only
+role = 'admin'
+UPDATE
+Admin only
+role = 'admin'
+DELETE
+Admin only
+role = 'admin'
+Bucket: ai-uploads
+• Access: Private (user-scoped)
+• Purpose: Temporary food image uploads for AI Image Analyzer
+• Allowed types: image/jpeg, image/png, image/webp
+• Max size: 5MB per file
+• Path structure: ai-uploads/{user_id}/{timestamp}_{filename}
+• Retention: Files deleted after 24 hours (via scheduled function or manual cleanup)
+Policies:
+Operation
+Who
+Rule
+SELECT
+Owner only
+auth.uid() = owner
+INSERT
+Authenticated users
+auth.uid() IS NOT NULL
+DELETE
+Owner only
+auth.uid() = owner
+Bucket: blog-images
+• Access: Public read
+• Purpose: Blog post featured images (admin-uploaded)
+• Path structure: blog-images/{post_id}/{filename}
+• Policies: Same as recipe-images (admin write, public read)
+6. Functions & Triggers
+6. Functions & Triggers
+Trigger: on_auth_user_created → handle_new_user()
+Jab naya user Supabase Auth se register kare, automatically profiles table mein row create ho:
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS trigger AS 
+
+BEGIN
+INSERT INTO public.profiles (id, email, full_name, role)
+VALUES (
+NEW.id,
+NEW.email,
+NEW.raw_user_meta_data->>'full_name',
+'user'
+);
+RETURN NEW;
+END;
+ LANGUAGE plpgsql SECURITY DEFINER;
+CREATE TRIGGER on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+Function: get_recipe_avg_rating(recipe_id uuid)
+Recipe ka average rating calculate kare (used in recipe cards):
+CREATE OR REPLACE FUNCTION get_recipe_avg_rating(p_recipe_id uuid)
+RETURNS numeric AS 
+
+SELECT ROUND(AVG(rating)::numeric, 1)
+FROM reviews
+WHERE recipe_id = p_recipe_id;
+ LANGUAGE sql STABLE;
+Trigger: update_updated_at (on recipes, profiles, blog_posts)
+Automatically updated_at timestamp update kare:
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS trigger AS 
+
+BEGIN
+NEW.updated_at = now();
+RETURN NEW;
+END;
+ LANGUAGE plpgsql;
+-- Apply to recipes, profiles, blog_posts tables
+CREATE TRIGGER set_recipes_updated_at
+BEFORE UPDATE ON recipes
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+Function: generate_slug(title text)
+Title se URL-friendly slug generate kare:
+CREATE OR REPLACE FUNCTION generate_slug(title text)
+RETURNS text AS 
+
+SELECT lower(regexp_replace(
+regexp_replace(title, '[^a-zA-Z0-9\s]', '', 'g'),
+'\s+', '-', 'g'
+));
+ LANGUAGE sql IMMUTABLE;
+Scheduled Cleanup (Supabase pg_cron — if available)
+AI uploads bucket se 24-hour-old files delete kare:
+-- Run daily via Supabase pg_cron or manual admin script
+SELECT storage.delete_objects_older_than('ai-uploads', interval '24 hours');
+Healthy Food Hub — Implementation PlanStages OverviewStages OverviewStageNameWhat HappensOrderAFrontend Development7 phases — complete UI with static/mock data1stBImages & Visual AssetsImage list → you create/source → URLs → integration2ndCSupabase Database SetupSchema create via Supabase connector3rdDCloudflare AI GatewayAI proxy functions integrate, test4thEGitHub → Cloudflare DeploymentPush code, deploy, verify5thQAFinal TestingFull functionality, responsive, security checkLastGolden Rule: Supabase database Stage A ya B mein create NAHI hogi. Frontend static mock data ke saath kaam karega jab tak Stage C na aaye.After every Phase: GitHub par push karein → mujhe repo URL dein → main review karunga → Fix Prompt (agar zaroorat ho) → Next Phase.Stage A — Frontend DevelopmentPhase 1: Foundation & Home PagePhase 1: Foundation & Home PageScope: Project setup, global layout, routing skeleton, Home Page (fully designed)AI Studio Prompt:Create a new React + TypeScript project using Vite for a website called "Healthy Food Hub" — an AI-powered healthy recipe and meal planning website.TECH STACK:- React 18 + TypeScript- Vite (build tool)- Tailwind CSS v3 with darkMode: 'class'- React Router v6- Zustand (state management)- Lucide React (icons)- React Helmet Async (meta tags)SETUP REQUIREMENTS:1. Create package.json with all dependencies listed above2. Create tailwind.config.js with darkMode: 'class', custom colors: - primary: green-500 (#22c55e), green-600 for hover - ai-accent: violet-600 (#7c3aed)3. Create .npmrc at repo root with: legacy-peer-deps=true4. Create public/_redirects with: /* /index.html 2005. Google Fonts in index.html: Plus Jakarta Sans (headings), Inter (body)FOLDER STRUCTURE:src/ components/layout/ (Header, Footer, MobileNav) components/common/ (Button, Card, Badge, SearchBar, SkeletonCard) pages/ store/ (themeStore.ts, authStore.ts) lib/ (supabase.ts — placeholder only, not connected) types/index.tsHEADER COMPONENT:- Logo: green leaf icon + "Healthy Food Hub" text (Plus Jakarta Sans Bold)- Nav links: Recipes, Categories, AI Tools (dropdown: Recipe Generator, Meal Planner, Food Assistant, Image Analyzer), Nutrition, Blog- Right side: Dark/Light mode toggle (Sun/Moon icon), Login button, Sign Up button (green)- Mobile: hamburger → slide-in drawer from right- Sticky, white background (dark: slate-900), subtle shadowFOOTER:- Logo + tagline- 4 column links: Recipes, AI Tools, Resources, Company- Newsletter email signup field + Subscribe button- Social icons (placeholder), copyright- Dark background (slate-900)HOME PAGE (/) — Complete, professional design:1. Hero Section: Full-width, food background image (use Unsplash placeholder: https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=1400), gradient overlay, headline "Eat Healthy, Live Better", subheadline, search bar ("Search 500+ healthy recipes..."), two CTA buttons: "Browse Recipes" (green) + "Try AI Generator" (violet)2. Category Cards: horizontal scroll on mobile, grid on desktop — 8 categories with Lucide icons: Breakfast, Lunch, Dinner, High-Protein, Vegetarian, Vegan, Quick Meals, Low-Carb3. Trending Recipes: 4 recipe cards using static mock data (5 mock recipes hardcoded)4. AI Features Banner: purple/violet gradient section, 4 AI feature cards with icons (Sparkles, Calendar, MessageCircle, Camera), each with title + description + "Try Now" button5. Latest Blog Articles: 3 static blog card placeholders6. Newsletter Section: green background, email signupMOCK DATA (src/data/mockRecipes.ts): 8 recipe objects with id, title, slug, image (Unsplash URL), prepTime, cookTime, calories, protein, carbs, fat, category, dietaryLabels array, rating, reviewCountROUTES (placeholder pages — just title + "Coming Soon" for non-home pages):/ (Home — fully built)/recipes, /recipes/:slug, /categories/:category/ai/recipe-generator, /ai/meal-planner, /ai/food-assistant, /ai/image-analyzer/nutrition, /blog, /blog/:slug/login, /register, /dashboard/admin, /about, /contact, /privacy, /termsDARK MODE: themeStore with Zustand, persist in localStorage, toggle on header icon click. Apply 'dark' class to <html>.Do NOT connect Supabase — leave supabase.ts as a placeholder with TODO comment.After implementation provide:- Change Report: all files created/modified- Test Report: what to verify manually- Known Issues- Next StepsPhase 2: Recipe Library & CategoriesPhase 2: Recipe Library & CategoriesScope: Recipe Library page, Single Recipe page, Category pages, Search + Filters, Recipe Card component (final version)AI Studio Prompt:We are continuing the Healthy Food Hub project (React + TypeScript + Vite + Tailwind CSS + React Router v6 + Zustand + Lucide React).Phase 1 is complete: project setup, Header, Footer, Home page, routing skeleton, dark mode, mock data are all working. DO NOT modify or break any existing functionality, components, or files unless explicitly required.PHASE 2 OBJECTIVE: Build Recipe Library, Single Recipe Page, and Category pages using static mock data.1. RECIPE CARD COMPONENT (src/components/recipes/RecipeCard.tsx) — Final version:- 16:9 image (rounded-t-2xl, object-cover, lazy loading)- Dietary label badges (color-coded: vegan=emerald, vegetarian=green, gluten-free=yellow, high-protein=orange, dairy-free=blue)- Category badge overlay (top-left on image, green pill)- Heart icon (top-right on image) — toggles favorite in Zustand recipeStore (not Supabase yet)- Title (font-semibold text-lg), prep+cook time row, calories- Star rating display (filled/half/empty stars) + review count- Card: white bg, rounded-2xl, shadow-sm, hover:shadow-md hover:-translate-y-1 transition-all duration-200- Dark mode: slate-800 card bg2. RECIPE LIBRARY PAGE (/recipes):- Page title + subtitle- Search bar (filters by title in mock data)- Advanced Filters panel (toggleable): Dietary Type (checkboxes: Vegetarian, Vegan, GF, DF, High-Protein), Meal Type (Breakfast/Lunch/Dinner/Snack), Max Cook Time (dropdown), Calories Range (min/max inputs), Difficulty- Active filters display as removable chips- Results count: "Showing X recipes"- Sort by: Latest, Most Popular, Quickest, Lowest Calories- Recipe grid: grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4, gap-6- Skeleton loader (4 pulse cards) while "loading" (simulate 800ms delay)- Empty state: illustration + "No recipes match your filters" message + Clear Filters button- Expand mock data to 16 recipes (cover all categories and dietary labels)3. SINGLE RECIPE PAGE (/recipes/:slug):- Hero: large 4:3 image, recipe title (H1), category badge, dietary label badges- Meta row: ⏱ Prep time | 🔥 Cook time | 👥 Servings | ⭐ Rating- Nutrition strip: 4-column grid — Calories | Protein | Carbs | Fat (each: big number + label)- Serving adjuster: − / [number] / + buttons → ingredient quantities scale proportionally (client-side)- Ingredients list: checkboxes (tick off as you cook), amounts + units + ingredient names- Step-by-step instructions: numbered cards, each with step number in green circle- Tags section: dietary labels as clickable chips- Print button (window.print(), print-optimized CSS)- Favorite button (heart, Zustand store)- "You might also like" — 4 random recipe cards from same category- Breadcrumb: Home > Recipes > [Recipe Name]4. CATEGORY PAGE (/categories/:category):- Category hero: title + description + icon- Recipe grid with same filters as /recipes, pre-filtered by category- 16 categories total (use ALL category slugs from mockRecipes)5. ZUSTAND recipeStore (src/store/recipeStore.ts):- favorites: string[] (recipe ids)- recentlyViewed: string[] (max 10)- toggleFavorite(id), addRecentlyViewed(id)- persist in localStorageDo NOT connect Supabase. Use mock data only.After implementation provide Change Report, Test Report, Known Issues, Next Steps.Phase 3: Nutrition Center, Blog & Static PagesPhase 3: Nutrition Center, Blog & Static PagesScope: Nutrition Center (all calculators), Blog index + single post, About, Contact, Privacy, Terms, Disclaimer pagesAI Studio Prompt:Continuing Healthy Food Hub. Phases 1 and 2 are complete (project setup, home page, recipe library, single recipe, categories, dark mode, Zustand stores). DO NOT break existing functionality.PHASE 3 OBJECTIVE: Build Nutrition Center, Blog, and all static pages.1. NUTRITION CENTER (/nutrition) — 7 interactive tools, all client-side calculation:a) Calorie Calculator:- Inputs: Age, Gender, Height (ft/in or cm toggle), Weight (lbs or kg toggle), Activity Level (dropdown: Sedentary/Lightly Active/Moderately Active/Very Active/Extra Active)- Output: BMR (Mifflin-St Jeor formula), TDEE, recommended intake for: Weight Loss / Maintenance / Weight Gain- Display as colored result cardsb) Macronutrient Calculator:- Input: daily calories, diet goal (Weight Loss/Muscle Gain/Maintenance/Keto/High-Protein)- Output: Protein g, Carbs g, Fat g — with % breakdown and visual bar chart (CSS bars only, no library)c) Protein Calculator:- Input: weight, activity level, goal (general/muscle gain/endurance)- Output: daily protein grams ranged) Portion Size Calculator:- Dropdown: select food item (Chicken Breast, Rice, Pasta, Salmon, Broccoli, etc. — 20 items hardcoded)- Input: weight in grams- Output: Calories, Protein, Carbs, Fat for that portione) Kitchen Unit Converter:- Tabs: Volume | Weight | Temperature- Input value + from-unit dropdown + to-unit dropdown- Real-time conversion output- All common units: cups, tbsp, tsp, ml, l, oz, g, kg, lb, °F, °Cf) Recipe Nutrition Calculator:- User adds ingredients (name + grams) dynamically- Uses hardcoded nutrition DB (50 common ingredients with per-100g macros)- Output: total recipe nutrition + per-serving (user sets servings)g) Recipe Cost Estimator:- User adds ingredients + quantity + price in USD- Output: total cost, cost per serving- "Add ingredient" row button, remove row button2. BLOG PAGE (/blog):- Featured article (first post, large card)- Category filter tabs: All, Nutrition, Meal Prep, Cooking Tips, Healthy Living, Recipes- 2-column grid of blog cards (image, category badge, title, excerpt, date, read time)- 6 static mock blog posts in src/data/mockBlogPosts.ts- Each post: id, title, slug, excerpt, content (HTML string), category, image (Unsplash URL), author, date, readTime3. SINGLE BLOG POST (/blog/:slug):- Hero image (full width)- Title, author, date, read time, category badge- Article body (render HTML content safely)- "Related Articles" — 3 cards same category- Breadcrumb: Home > Blog > [Title]4. STATIC PAGES:/about — Company story, mission, team section (3 placeholder team cards), values/contact — Contact form (Name, Email, Subject, Message) with validation (React Hook Form + Zod), success/error toast on submit (no backend — just UI simulation)/privacy — Full Privacy Policy text (generate reasonable placeholder content)/terms — Terms & Conditions (reasonable placeholder)/disclaimer — Nutrition disclaimer (important: AI estimates are not medical advice, consult professionals)All pages: proper <title> and meta description via React Helmet Async.After implementation provide Change Report, Test Report, Known Issues, Next Steps.Phase 4: Auth & User DashboardPhase 4: Auth & User DashboardScope: Login, Register pages, PrivateRoute guard, User Dashboard (all tabs), Account Settings — Supabase connected for the first timeAI Studio Prompt:Continuing Healthy Food Hub. Phases 1–3 complete. DO NOT break existing functionality.PHASE 4 OBJECTIVE: Implement authentication and user dashboard. This is the FIRST phase where Supabase is connected.SUPABASE SETUP (use environment variables — do not hardcode):- src/lib/supabase.ts: createClient using VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY- .env.example file with these two variables- .env is gitignored1. AUTH STORE (src/store/authStore.ts — Zustand):- user: User | null- profile: Profile | null (from profiles table)- loading: boolean- Initialize: supabase.auth.getSession() on app mount- Listen: supabase.auth.onAuthStateChange()- Actions: signIn(email, password), signUp(email, password, fullName), signOut(), updateProfile(data)2. REGISTER PAGE (/register):- Form: Full Name, Email, Password (min 8 chars), Confirm Password- Dietary preferences checkboxes: Vegetarian, Vegan, Gluten-Free, Dairy-Free, High-Protein, Keto, Low-Carb- Submit → supabase.auth.signUp() with full_name in metadata- Success: show "Check your email to verify" message- Error handling: duplicate email, weak password- Link to /login- Validation: React Hook Form + Zod3. LOGIN PAGE (/login):- Form: Email, Password- Submit → supabase.auth.signInWithPassword()- Success → redirect to /dashboard (or previous protected page)- "Forgot Password" link → /forgot-password page- Error: "Invalid credentials" toast- Link to /register4. FORGOT PASSWORD PAGE (/forgot-password):- Email input → supabase.auth.resetPasswordForEmail()- Success message shown5. PRIVATE ROUTE (src/components/common/PrivateRoute.tsx):- If !authStore.user → redirect to /login with state: {from: location}- Show loading spinner while auth initializing6. ADMIN ROUTE (src/components/common/AdminRoute.tsx):- Check authStore.profile.role === 'admin'- If not admin → redirect to /7. USER DASHBOARD (/dashboard — protected):Tabbed layout with 5 tabs:Tab 1 — Overview:- Welcome message with user name- Quick stats: saved recipes count, meal plans count, grocery lists count- Recently viewed recipes (from recipeStore.recentlyViewed → fetch from Supabase)- Quick links to AI toolsTab 2 — Saved Recipes:- Grid of favorite recipes (from user_favorites table joined with recipes)- Remove from favorites button on each card- Empty state with CTA to browse recipesTab 3 — AI Recipes:- List of user's saved AI-generated recipes (from ai_recipes table)- Each: title, date saved, expand to view full content- Delete button- Empty state with CTA to AI Recipe GeneratorTab 4 — Meal Plans:- List of saved meal plans (from meal_plans table)- Each: title, duration, date created, view button- Delete button- Empty state with CTA to AI Meal PlannerTab 5 — Account Settings:- Edit full name, email (Supabase update)- Update dietary preferences (update profiles table)- Change password (supabase.auth.updateUser)- Danger Zone: Delete Account (with confirmation modal)8. HEADER UPDATE:- When logged in: replace Login/Sign Up buttons with avatar circle (initials) + dropdown: Dashboard, Account Settings, LogoutAll Supabase errors handled with toast notifications. Loading states on all async operations.After implementation provide Change Report, Test Report, Known Issues, Next Steps.Phase 5: AI FeaturesPhase 5: All 4 AI FeaturesScope: AI Recipe Generator, AI Meal Planner, AI Food Assistant (Chatbot), AI Food Image Analyzer — all via Cloudflare AI Gateway proxy functionsAI Studio Prompt:Continuing Healthy Food Hub. Phases 1–4 complete. DO NOT break existing functionality.PHASE 5 OBJECTIVE: Build all 4 AI features. AI calls go through Cloudflare Pages Functions (server-side proxy) — NEVER directly from frontend.CLOUDFLARE PAGES FUNCTIONS SETUP:Create folder: functions/api/ai/Each function reads these environment variables (set in Cloudflare dashboard — not in .env):- CF_ACCOUNT_ID- CF_GATEWAY_NAME- CF_AI_TOKEN (Cloudflare AI API token)Base URL for all AI calls inside functions:https://gateway.ai.cloudflare.com/v1/${CF_ACCOUNT_ID}/${CF_GATEWAY_NAME}/workers-ai/All functions: POST method, JSON body, return JSON response, CORS headers for your domain.1. FUNCTION: functions/api/ai/recipe.ts- Accepts: { ingredients: string[], dietary: string, cookTime: string, difficulty: string }- System prompt: "You are a professional healthy food chef. Generate a detailed healthy recipe..."- Model: @cf/meta/llama-3.1-8b-instruct- Returns: { title, description, ingredients: [{amount, unit, name}], instructions: [{step, text}], nutrition: {calories, protein, carbs, fat, fiber}, prepTime, cookTime, servings, dietaryLabels }- Response must be valid JSON only2. FUNCTION: functions/api/ai/meal-plan.ts- Accepts: { duration: 1|7|30, dietary: string, budget: 'low'|'medium'|'high', preferences: string[] }- Returns: structured meal plan JSON: { days: [{ day, breakfast, lunch, dinner, snacks: [], totalCalories }] }- Each meal: { name, description, estimatedCalories, prepTime }3. FUNCTION: functions/api/ai/chat.ts- Accepts: { messages: [{role: 'user'|'assistant', content: string}], userPreferences?: string }- System prompt: "You are a friendly, knowledgeable healthy food and nutrition assistant..."- Returns: { reply: string }- Maintains conversation context via message history4. FUNCTION: functions/api/ai/image-analyze.ts- Accepts: multipart form with image file- Converts image to base64, sends to LLaVA model- Model: @cf/llava-hf/llava-1.5-7b-hf- Prompt: "Analyze this food image. Identify the food items, estimate portions, provide approximate nutritional information..."- Returns: { foods: [{name, portion, calories, protein, carbs, fat}], healthierAlternatives: string[], disclaimer: string }RATE LIMITING IN FUNCTIONS:- Read x-user-id header (sent from frontend: auth user id or 'guest')- Guest: max 3 requests per hour per IP (use KV or simple in-memory counter)- If limit exceeded: return 429 with { error: 'rate_limit', message: '...' }FRONTEND — AI PAGES:5. AI RECIPE GENERATOR (/ai/recipe-generator):- Tag input for ingredients (type + Enter to add, click X to remove)- Dietary preference select (None/Vegetarian/Vegan/GF/High-Protein/Keto/Low-Carb)- Cook time select (Any/Under 30 min/Under 1 hour)- Difficulty select (Any/Easy/Medium)- "Generate Recipe" button (violet/AI color)- Loading state: animated cooking icon + "Creating your recipe..."- Result: beautiful recipe card with full details, nutrition strip, print button- Registered users: "Save Recipe" button → POST to Supabase ai_recipes table- "Generate Another" button- Guest after 3 uses: modal "Sign up to generate unlimited recipes"6. AI MEAL PLANNER (/ai/meal-planner):- Step 1: Select duration (1 / 7 / 30 days) — large toggle cards- Step 2: Dietary preferences (checkboxes)- Step 3: Budget level (Low / Medium / High) — icon cards- "Generate My Meal Plan" button- Loading: progress bar animation + "Planning your meals..."- Result: tabbed day view (Day 1, Day 2... or Mon/Tue... for 7-day)- Each day: Breakfast / Lunch / Dinner / Snacks cards with calories- Total daily calories shown- Buttons: Save Plan (Supabase), Generate Grocery List, Print, Export PDF (window.print())- Guest limit: 1 plan then register prompt7. AI FOOD ASSISTANT (/ai/food-assistant):- Chat interface: message list + fixed bottom input- User messages: right-aligned, green background- AI messages: left-aligned, slate background, small bot avatar (green circle with Sparkles icon)- Starter suggestions: 4 clickable question chips ("What's a healthy breakfast?", "High-protein vegetarian meals?", "How to reduce sugar?", "Quick 20-minute healthy dinner?")- Send on Enter key or Send button- Loading: typing dots animation (3 bouncing dots)- Conversation stored in Zustand aiStore (session only, not persisted)- Guest: 3 messages then register CTA overlay (blurs chat)- Error toast if AI call fails8. AI FOOD IMAGE ANALYZER (/ai/image-analyzer):- Upload zone: dashed border, drag-and-drop + click-to-upload- Accept: image/jpeg, image/png, image/webp, max 5MB- File validation: show error if wrong type or too large- Image preview shown after selection- "Analyze Food" button (violet)- Loading: "Analyzing your food image..."- Results section: - Identified foods list with portion + calories estimate - Macro breakdown (Protein / Carbs / Fat) as vis

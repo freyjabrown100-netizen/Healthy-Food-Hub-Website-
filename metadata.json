@@ -1,0 +1,6 @@
+{
+  "name": "Healthy Food Hub",
+  "description": "AI-powered healthy recipe library, smart meal planner, nutrition center, and dietary wellness assistant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
