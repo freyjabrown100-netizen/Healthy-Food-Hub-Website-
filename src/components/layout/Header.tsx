@@ -25,7 +25,7 @@ import { Button } from '../common/Button';
 export const Header: React.FC = () => {
   const location = useLocation();
   const { isDark, toggleTheme } = useThemeStore();
-  const { user, signOut, toggleAdminRole } = useAuthStore();
+  const { user, signOut } = useAuthStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [aiDropdownOpen, setAiDropdownOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -272,19 +272,6 @@ export const Header: React.FC = () => {
                         )}
                       </div>
                     </Link>
-                  </div>
-
-                  {/* Demo Role Switcher */}
-                  <div className="p-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 rounded-xl my-1">
-                    <button
-                      onClick={toggleAdminRole}
-                      className="w-full text-xs flex items-center justify-between text-slate-700 dark:text-slate-300 font-medium hover:text-emerald-600"
-                    >
-                      <span>Toggle Role (Demo Mode)</span>
-                      <span className="font-bold text-emerald-600 dark:text-emerald-400 uppercase">
-                        {user.role === 'admin' ? 'Switch to User' : 'Switch to Admin'}
-                      </span>
-                    </button>
                   </div>
 
                   <div className="pt-1 border-t border-slate-100 dark:border-slate-800">
