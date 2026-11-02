@@ -8,7 +8,6 @@ interface AuthState {
   signUp: (email: string, password?: string, fullName?: string, dietary?: DietaryLabel[]) => Promise<boolean>;
   signOut: () => void;
   updateProfile: (data: Partial<UserProfile>) => void;
-  toggleAdminRole: () => void;
 }
 
 const STORAGE_KEY = 'hfh_auth_user';
@@ -17,20 +16,13 @@ const getInitialUser = (): UserProfile | null => {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as UserProfile;
+    // Never trust a role persisted by the browser.
+    return { ...parsed, role: 'user' };
   } catch {
-    // fallback
+    return null;
   }
-  // Default demo logged-in user with standard access
-  return {
-    id: 'user-demo-1',
-    email: 'alex.wellness@example.com',
-    fullName: 'Alex Rivera',
-    role: 'user',
-    dietaryPreferences: ['high-protein', 'gluten-free'],
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop',
-    createdAt: '2026-01-15',
-  };
 };
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -39,59 +31,57 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signIn: async (email: string, _password?: string) => {
     set({ loading: true });
-    // Simulate network delay
-    await new Promise((r) => setTimeout(r, 400));
-    const isAdmin = email.toLowerCase().includes('admin');
-    const newUser: UserProfile = {
-      id: 'user-' + Date.now(),
-      email,
-      fullName: email.split('@')[0].replace('.', ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-      role: isAdmin ? 'admin' : 'user',
-      dietaryPreferences: ['high-protein'],
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop',
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
-    set({ user: newUser, loading: false });
-    return true;
+    try {
+      // Demo-only authentication: do not grant elevated privileges based on email.
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      const newUser: UserProfile = {
+        id: 'demo-user-' + Date.now(),
+        email,
+        fullName: email.split('@')[0].replace('.', ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+        role: 'user',
+        dietaryPreferences: [],
+        createdAt: new Date().toISOString().split('T')[0],
+      };
+      if (typeof window !== 'undefined') localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
+      set({ user: newUser, loading: false });
+      return true;
+    } catch {
+      set({ loading: false });
+      return false;
+    }
   },
 
   signUp: async (email: string, _password?: string, fullName?: string, dietary?: DietaryLabel[]) => {
     set({ loading: true });
-    await new Promise((r) => setTimeout(r, 400));
-    const newUser: UserProfile = {
-      id: 'user-' + Date.now(),
-      email,
-      fullName: fullName || email.split('@')[0],
-      role: 'user',
-      dietaryPreferences: dietary || [],
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop',
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
-    set({ user: newUser, loading: false });
-    return true;
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      const newUser: UserProfile = {
+        id: 'demo-user-' + Date.now(),
+        email,
+        fullName: fullName || email.split('@')[0],
+        role: 'user',
+        dietaryPreferences: dietary || [],
+        createdAt: new Date().toISOString().split('T')[0],
+      };
+      if (typeof window !== 'undefined') localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
+      set({ user: newUser, loading: false });
+      return true;
+    } catch {
+      set({ loading: false });
+      return false;
+    }
   },
 
   signOut: () => {
-    localStorage.removeItem(STORAGE_KEY);
+    if (typeof window !== 'undefined') localStorage.removeItem(STORAGE_KEY);
     set({ user: null });
   },
 
   updateProfile: (data: Partial<UserProfile>) => {
     const current = get().user;
     if (!current) return;
-    const updated = { ...current, ...data };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    set({ user: updated });
-  },
-
-  toggleAdminRole: () => {
-    const current = get().user;
-    if (!current) return;
-    const nextRole = current.role === 'admin' ? 'user' : 'admin';
-    const updated: UserProfile = { ...current, role: nextRole };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    const updated = { ...current, ...data, role: current.role };
+    if (typeof window !== 'undefined') localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     set({ user: updated });
   },
 }));
